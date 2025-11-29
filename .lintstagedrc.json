@@ -1,0 +1,6 @@
+{
+    "*.{js,ts,jsx,tsx}": ["pnpm lint", "pnpm format"],
+    "*.json": ["pnpm format"],
+    "*.md": ["pnpm format"]
+  }
+  
