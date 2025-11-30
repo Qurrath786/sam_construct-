@@ -1,0 +1,60 @@
+﻿name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  setup-and-run:
+    name: Lint • Test • Build (monorepo)
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version: [18.x, 20.x]
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Use Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'pnpm'
+
+      - name: Install pnpm
+        run: npm install -g pnpm@8
+
+      - name: Cache pnpm store
+        uses: actions/cache@v4
+        with:
+          path: ~/.pnpm-store
+          key: pnpm-store-${{ runner.os }}-node-${{ matrix.node-version }}-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            pnpm-store-${{ runner.os }}-node-${{ matrix.node-version }}-
+
+      - name: Install dependencies (root)
+        run: pnpm install --frozen-lockfile --store-dir ~/.pnpm-store
+
+      - name: Lint (root -> packages)
+        run: pnpm -w run lint
+
+      - name: Run tests (root -> packages)
+        run: pnpm -w run test --if-present
+
+      - name: Build (root -> packages)
+        run: pnpm -w run build --if-present
+
+      - name: Upload workspace checksum (artifact)
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: workspace-checksum
+          path: .github/ci-workspace-checksum || echo "no-checksum"
